@@ -1,0 +1,380 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *, [data-theme="dark"], [data-theme="dark"] *));
+
+@theme {
+  /* Semantic Design Tokens mapped to dynamic CSS variables */
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-surface-secondary: var(--surface-secondary);
+
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-heading: var(--heading);
+
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-soft: var(--primary-soft);
+
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-error: var(--error);
+  --color-info: var(--info);
+
+  /* Legacy ayur- token aliases wired to dynamic semantic variables */
+  --color-ayur-bg: var(--background);
+  --color-ayur-card: var(--surface);
+  --color-ayur-primary: var(--primary);
+  --color-ayur-primary-hover: var(--primary-hover);
+  --color-ayur-secondary: var(--surface-secondary);
+  --color-ayur-text: var(--text-primary);
+  --color-ayur-muted: var(--text-muted);
+  --color-ayur-border: var(--border);
+  --color-ayur-success: var(--success);
+  --color-ayur-warning: var(--warning);
+  --color-ayur-error: var(--error);
+  --color-ayur-info: var(--info);
+
+  /* Specific dark tokens preserved for backward compatibility */
+  --color-ayur-dark-bg: #0D1511;
+  --color-ayur-dark-card: #17211B;
+  --color-ayur-dark-primary: #78B895;
+  --color-ayur-dark-primary-hover: #91CAA8;
+  --color-ayur-dark-secondary: #223128;
+  --color-ayur-dark-text: #F1F6F2;
+  --color-ayur-dark-muted: #98A99E;
+  --color-ayur-dark-border: #304036;
+  --color-ayur-dark-success: #7BC894;
+  --color-ayur-dark-warning: #E5B85C;
+  --color-ayur-dark-error: #F18484;
+  --color-ayur-dark-info: #80B5DD;
+}
+
+@layer base {
+  :root {
+    /* ---------------------------------------------------- */
+    /* AYURSETU LIGHT MODE DESIGN TOKENS                    */
+    /* ---------------------------------------------------- */
+    --background: #F7F9F4;
+    --surface: #FFFFFF;
+    --surface-elevated: #FFFFFF;
+    --surface-secondary: #EEF4EF;
+
+    --text-primary: #17231C;
+    --text-secondary: #526158;
+    --text-muted: #68776D;
+    --heading: #142019;
+
+    --primary: #2F6B4F;
+    --primary-hover: #24563F;
+    --primary-soft: #DCEBE1;
+
+    --border: #D5DED8;
+    --border-strong: #B9C8BE;
+
+    --success: #2F7D4A;
+    --warning: #A96F16;
+    --error: #B64040;
+    --info: #356F9D;
+
+    /* Legacy CSS Variable Compatibility */
+    --bg-primary: var(--background);
+    --bg-surface: var(--surface);
+    --brand-primary: var(--primary);
+    --brand-primary-hover: var(--primary-hover);
+    --brand-secondary: var(--surface-secondary);
+    --border-color: var(--border);
+  }
+
+  :root.dark,
+  [data-theme="dark"],
+  .dark {
+    /* ---------------------------------------------------- */
+    /* AYURSETU DARK MODE DESIGN TOKENS                     */
+    /* ---------------------------------------------------- */
+    --background: #0D1511;
+    --surface: #17211B;
+    --surface-elevated: #1D2A22;
+    --surface-secondary: #223128;
+
+    --text-primary: #F1F6F2;
+    --text-secondary: #C1CEC5;
+    --text-muted: #98A99E;
+    --heading: #FFFFFF;
+
+    --primary: #78B895;
+    --primary-hover: #91CAA8;
+    --primary-soft: #294637;
+
+    --border: #304036;
+    --border-strong: #425449;
+
+    --success: #7BC894;
+    --warning: #E5B85C;
+    --error: #F18484;
+    --info: #80B5DD;
+
+    /* Legacy CSS Variable Compatibility */
+    --bg-primary: var(--background);
+    --bg-surface: var(--surface);
+    --brand-primary: var(--primary);
+    --brand-primary-hover: var(--primary-hover);
+    --brand-secondary: var(--surface-secondary);
+    --border-color: var(--border);
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--text-primary);
+    font-family: var(--font-geist-sans), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    transition: background-color 0.25s ease, color 0.25s ease;
+  }
+
+  /* Accessible Global Inputs, Selects & Textareas */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="submit"]):not([type="button"]):not([type="reset"]),
+  select,
+  textarea {
+    background-color: var(--surface);
+    color: var(--text-primary);
+    border-color: var(--border);
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--text-muted);
+    opacity: 0.9;
+  }
+
+  /* Global Tables */
+  table {
+    color: var(--text-primary);
+    border-color: var(--border);
+  }
+
+  th {
+    background-color: var(--surface-secondary);
+    color: var(--text-secondary);
+    border-color: var(--border);
+  }
+
+  td {
+    border-color: var(--border);
+  }
+
+  /* Scrollbars */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--background);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+  }
+}
+
+.font-serif-heading {
+  font-family: var(--font-serif-heading), 'Playfair Display', Georgia, Cambria, 'Times New Roman', Times, serif;
+}
+
+/* Reusable Semantic Card Utilities */
+.ayur-card {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  color: var(--text-primary);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dark .ayur-card {
+  box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.25);
+}
+
+.ayur-card-elevated {
+  background-color: var(--surface-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: 1rem;
+  color: var(--text-primary);
+  box-shadow: 0 4px 14px 0 rgba(0, 0, 0, 0.08);
+}
+
+.dark .ayur-card-elevated {
+  box-shadow: 0 8px 24px 0 rgba(0, 0, 0, 0.35);
+}
+
+/* Reusable Semantic Button Hierarchy */
+.ayur-btn-primary {
+  background-color: var(--primary);
+  color: #FFFFFF;
+  font-weight: 600;
+  border-radius: 0.75rem;
+  padding: 0.625rem 1.25rem;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.ayur-btn-primary:hover {
+  background-color: var(--primary-hover);
+}
+.dark .ayur-btn-primary {
+  color: #0D1511;
+}
+
+.ayur-btn-secondary {
+  background-color: var(--surface-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  font-weight: 600;
+  border-radius: 0.75rem;
+  padding: 0.625rem 1.25rem;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.ayur-btn-secondary:hover {
+  border-color: var(--border-strong);
+  background-color: var(--primary-soft);
+}
+
+.ayur-btn-outline {
+  background-color: transparent;
+  color: var(--primary);
+  border: 1px solid var(--border-strong);
+  font-weight: 600;
+  border-radius: 0.75rem;
+  padding: 0.625rem 1.25rem;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.ayur-btn-outline:hover {
+  background-color: var(--primary-soft);
+  border-color: var(--primary);
+}
+
+/* Reusable Semantic Badges */
+.ayur-badge-success {
+  background-color: rgba(47, 125, 74, 0.12);
+  color: var(--success);
+  border: 1px solid rgba(47, 125, 74, 0.25);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.ayur-badge-warning {
+  background-color: rgba(169, 111, 22, 0.12);
+  color: var(--warning);
+  border: 1px solid rgba(169, 111, 22, 0.25);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.ayur-badge-error {
+  background-color: rgba(182, 64, 64, 0.12);
+  color: var(--error);
+  border: 1px solid rgba(182, 64, 64, 0.25);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.ayur-badge-info {
+  background-color: rgba(53, 111, 157, 0.12);
+  color: var(--info);
+  border: 1px solid rgba(53, 111, 157, 0.25);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+/* Glass Card styling */
+.glass-card {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 20px 0 rgba(47, 107, 79, 0.05);
+}
+
+.dark .glass-card {
+  background: rgba(23, 33, 27, 0.92);
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.35);
+}
+
+/* Unified Ecosystem & Banner Styling */
+.ecosystem-container {
+  background-color: #2F6B4F;
+  border-radius: 20px;
+}
+
+.dark .ecosystem-container {
+  background-color: #17211B;
+}
+
+.ecosystem-card {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(220, 235, 225, 0.2);
+  border-radius: 16px;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ecosystem-card:hover {
+  transform: translateY(-4px);
+  border-color: #78B895;
+  box-shadow: 0 12px 30px -8px rgba(0, 0, 0, 0.3), 0 0 20px 0 rgba(120, 184, 149, 0.2);
+}
+
+/* Subtle Micro-Animations */
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 0.92; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.015); }
+}
+
+.animate-float {
+  animation: float-slow 4s ease-in-out infinite;
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 3s ease-in-out infinite;
+}

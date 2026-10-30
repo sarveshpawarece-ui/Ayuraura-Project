@@ -1,0 +1,72 @@
+# ==============================================================================
+# Git Ignore Configuration for Aayuraura
+# ==============================================================================
+
+# Dependencies
+node_modules/
+frontend/node_modules/
+backend/venv/
+backend/.venv/
+.venv/
+venv/
+
+# Python bytecode & test caches
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.pytest_cache/
+.pytest_cache/
+backend/.pytest_cache/
+
+# Next.js Build & Compilation Artifacts
+frontend/.next/
+frontend/out/
+frontend/build/
+.next/
+out/
+build/
+*.tsbuildinfo
+frontend/*.tsbuildinfo
+
+# Sensitive Environment Files (NEVER COMMIT ACTUAL CREDENTIALS)
+.env
+.env.local
+.env.*.local
+*.env
+backend/.env
+frontend/.env.local
+backend/.env.local
+frontend/.env
+
+# Allow environment templates
+!*.example
+!.env.example
+!backend/.env.production.example
+!frontend/.env.production.example
+
+# Local Database & SQLite files
+*.db
+*.sqlite
+*.sqlite3
+backend/*.db
+backend/*.sqlite
+backend/*.sqlite3
+backend/sql_app.db
+backend/test.db
+backend/app.db
+
+# System & OS Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE & Editor Configuration
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Redundant Legacy Backup Dirs
+AyurSetu/
