@@ -7,7 +7,7 @@ const backendUrl =
   "http://127.0.0.1:8000";
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  output: process.env.VERCEL === "1" ? undefined : "standalone",
   compress: true,
   poweredByHeader: false,
   experimental: {

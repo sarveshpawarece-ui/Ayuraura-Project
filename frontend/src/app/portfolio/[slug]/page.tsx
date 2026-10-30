@@ -23,8 +23,9 @@ import {
   Target
 } from "lucide-react";
 import axios from "axios";
+import { API_BASE_URL } from "@/lib/api";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+const API_BASE = API_BASE_URL;
 
 export default function PublicPortfolioPage() {
   const params = useParams();
