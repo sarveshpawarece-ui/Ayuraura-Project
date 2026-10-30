@@ -28,11 +28,11 @@ def get_token_for_user(email: str, role: str = "INDUSTRY", password: str = "Ayur
 
 
 def test_internship_full_lifecycle():
-    emp_email = f"employer_{uuid.uuid4().hex[:6]}@ayurhosp.com"
+    emp_email = f"employer_{uuid.uuid4().hex[:6]}@gmail.com"
     emp_token = get_token_for_user(emp_email, role="INDUSTRY")
     emp_headers = {"Authorization": f"Bearer {emp_token}"}
 
-    student_email = f"intern_student_{uuid.uuid4().hex[:6]}@ayursetu.edu"
+    student_email = f"intern_student_{uuid.uuid4().hex[:6]}@gmail.com"
     student_token = get_token_for_user(student_email, role="STUDENT")
     student_headers = {"Authorization": f"Bearer {student_token}"}
 

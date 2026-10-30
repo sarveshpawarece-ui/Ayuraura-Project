@@ -132,7 +132,7 @@ def test_clinical_and_internship_logbook():
 
 
 def test_student_personalized_dashboard_endpoint():
-    student_email = f"bams_dash_{uuid.uuid4().hex[:6]}@aayuraura.edu"
+    student_email = f"bams_dash_{uuid.uuid4().hex[:6]}@gmail.com"
     token = get_token_for_user(student_email, role="STUDENT")
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -158,7 +158,7 @@ def test_student_personalized_dashboard_endpoint():
 
 
 def test_smart_learning_recommendations_flow():
-    student_email = f"bams_rec_{uuid.uuid4().hex[:6]}@aayuraura.edu"
+    student_email = f"bams_rec_{uuid.uuid4().hex[:6]}@gmail.com"
     token = get_token_for_user(student_email, role="STUDENT")
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -196,7 +196,7 @@ def test_smart_learning_recommendations_flow():
 
 
 def test_interactive_flashcards_deck_and_review():
-    student_email = f"bams_flash_{uuid.uuid4().hex[:6]}@aayuraura.edu"
+    student_email = f"bams_flash_{uuid.uuid4().hex[:6]}@gmail.com"
     token = get_token_for_user(student_email, role="STUDENT")
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -236,7 +236,7 @@ def test_interactive_flashcards_deck_and_review():
 
 
 def test_student_learning_goals_and_reminders():
-    student_email = f"bams_goals_{uuid.uuid4().hex[:6]}@aayuraura.edu"
+    student_email = f"bams_goals_{uuid.uuid4().hex[:6]}@gmail.com"
     token = get_token_for_user(student_email, role="STUDENT")
     headers = {"Authorization": f"Bearer {token}"}
 
