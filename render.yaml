@@ -13,6 +13,6 @@ services:
       - key: SECRET_KEY
         generateValue: true
       - key: CORS_ORIGINS
-        value: "http://localhost:3000,http://127.0.0.1:3000"
+        value: "https://ayuraura-project.vercel.app,http://localhost:3000,http://127.0.0.1:3000"
       - key: PYTHON_VERSION
         value: "3.11.9"
