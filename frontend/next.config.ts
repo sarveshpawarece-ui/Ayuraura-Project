@@ -19,12 +19,25 @@ const nextConfig: NextConfig = {
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
   },
   async rewrites() {
-    return [
-      {
-        source: "/api/v1/:path*",
-        destination: `${backendUrl}/api/v1/:path*`,
-      },
-    ];
+    // If an external cloud backend URL is configured, proxy to it
+    if (backendUrl && !backendUrl.includes("127.0.0.1") && !backendUrl.includes("localhost")) {
+      return [
+        {
+          source: "/api/v1/:path*",
+          destination: `${backendUrl}/api/v1/:path*`,
+        },
+      ];
+    }
+    // In local development, proxy to local backend
+    if (process.env.VERCEL !== "1" && backendUrl) {
+      return [
+        {
+          source: "/api/v1/:path*",
+          destination: `${backendUrl}/api/v1/:path*`,
+        },
+      ];
+    }
+    return [];
   },
 };
 
