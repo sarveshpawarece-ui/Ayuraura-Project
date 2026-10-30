@@ -13,11 +13,17 @@ logger = logging.getLogger("uvicorn.error")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Security audit check on startup
-    if not settings.USE_SQLITE_DEV and settings.SECRET_KEY == "ayursetu-sih2k26-secret-key-change-in-production-32bytes":
-        logger.warning(
-            "CRITICAL SECURITY WARNING: Default development SECRET_KEY is in use in production mode! "
-            "Set the SECRET_KEY environment variable to a secure random 32+ character string."
-        )
+    if settings.SECRET_KEY == "ayursetu-sih2k26-secret-key-change-in-production-32bytes":
+        if settings.ENVIRONMENT == "production":
+            raise RuntimeError(
+                "CRITICAL SECURITY ERROR: Default development SECRET_KEY is in use in production mode! "
+                "You MUST set the SECRET_KEY environment variable in your hosting dashboard."
+            )
+        else:
+            logger.warning(
+                "CRITICAL SECURITY WARNING: Default development SECRET_KEY is in use! "
+                "Set the SECRET_KEY environment variable to a secure random 32+ character string."
+            )
 
     # Startup initialization
     async with engine.begin() as conn:

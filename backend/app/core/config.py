@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     REQUIRE_OTP_LOGIN: bool = True
     OTP_EXPIRATION_MINUTES: int = 5
 
+    ENVIRONMENT: str = "development" # "development", "staging", "production"
+
     # Database Settings
     USE_SQLITE_DEV: bool = True
     POSTGRES_SERVER: str = "localhost"
@@ -46,6 +48,11 @@ class Settings(BaseSettings):
             elif db_url.startswith("postgresql://") and not db_url.startswith("postgresql+asyncpg://"):
                 return db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
             return db_url
+        if self.ENVIRONMENT == "production":
+            raise ValueError(
+                "CRITICAL CONFIGURATION ERROR: In production mode (ENVIRONMENT=production), "
+                "a managed PostgreSQL DATABASE_URL must be provided. SQLite fallback is strictly disallowed."
+            )
         if self.USE_SQLITE_DEV and not os.getenv("DOCKER_ENV"):
             return "sqlite+aiosqlite:///./ayursetu_dev.db"
         return f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
@@ -59,6 +66,11 @@ class Settings(BaseSettings):
             elif db_url.startswith("postgresql+asyncpg://"):
                 return db_url.replace("postgresql+asyncpg://", "postgresql://", 1)
             return db_url
+        if self.ENVIRONMENT == "production":
+            raise ValueError(
+                "CRITICAL CONFIGURATION ERROR: In production mode (ENVIRONMENT=production), "
+                "a managed PostgreSQL DATABASE_URL must be provided. SQLite fallback is strictly disallowed."
+            )
         if self.USE_SQLITE_DEV and not os.getenv("DOCKER_ENV"):
             return "sqlite:///./ayursetu_dev.db"
         return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
