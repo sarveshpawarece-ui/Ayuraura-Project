@@ -107,7 +107,7 @@ export default function StudentInternshipHistoryPage() {
               Explore New Internships
             </Link>
             <Link
-              href="/portfolio"
+              href="/student/portfolio"
               className="px-4 py-2.5 rounded-2xl bg-[#EEF4EF] dark:bg-[#223128] hover:bg-[#D5DED8] dark:hover:bg-[#304036] text-[#17231C] dark:text-[#F1F6F2] text-xs font-semibold border border-[#D5DED8] dark:border-[#304036] transition"
             >
               Public Portfolio
