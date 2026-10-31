@@ -1,15 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Dynamic In-Memory Store for Serverless Sessions
-const registeredUsers: Map<string, any> = new Map([
-  ["student@ayursetu.local", { id: "demo-student-1", email: "student@ayursetu.local", role: "STUDENT", fullName: "Demo Student" }],
-  ["doctor@ayursetu.local", { id: "demo-doctor-1", email: "doctor@ayursetu.local", role: "DOCTOR", fullName: "Dr. Demo Vaidya" }],
-  ["faculty@ayursetu.local", { id: "demo-faculty-1", email: "faculty@ayursetu.local", role: "FACULTY", fullName: "Prof. Suresh Sharma" }],
-  ["institution@ayursetu.local", { id: "demo-inst-1", email: "institution@ayursetu.local", role: "INSTITUTION", fullName: "National Institute of Ayurveda" }],
-  ["industry@ayursetu.local", { id: "demo-ind-1", email: "industry@ayursetu.local", role: "INDUSTRY", fullName: "AyurPharma Global" }],
-  ["ngo@ayursetu.local", { id: "demo-ngo-1", email: "ngo@ayursetu.local", role: "NGO", fullName: "Arogya Seva Trust" }],
-  ["admin@ayursetu.local", { id: "demo-admin-1", email: "admin@ayursetu.local", role: "ADMIN", fullName: "System Administrator" }],
-]);
+// Dynamic In-Memory Store for Serverless Sessions (Starts completely clean; no demo accounts)
+const registeredUsers: Map<string, any> = new Map();
 
 function createMockToken(email: string, role: string, userId: string): string {
   const payload = {
@@ -22,7 +14,7 @@ function createMockToken(email: string, role: string, userId: string): string {
   return `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.${Buffer.from(JSON.stringify(payload)).toString("base64url")}.live_signature_verified`;
 }
 
-function extractSessionFromRequest(request: NextRequest): { email: string; role: string; fullName: string; id: string } {
+function extractSessionFromRequest(request: NextRequest): { email: string; role: string; fullName: string; id: string } | null {
   const authHeader = request.headers.get("authorization") || "";
   if (authHeader.startsWith("Bearer ")) {
     const rawToken = authHeader.slice(7).trim();
@@ -35,7 +27,7 @@ function extractSessionFromRequest(request: NextRequest): { email: string; role:
           return {
             email: payload.sub,
             role: payload.role.toUpperCase(),
-            fullName: user?.fullName || payload.sub.split("@")[0] || "Ayurvedic Practitioner",
+            fullName: user?.fullName || payload.sub.split("@")[0] || "Ayurvedic Scholar",
             id: payload.uid || user?.id || "usr-session",
           };
         }
@@ -44,12 +36,7 @@ function extractSessionFromRequest(request: NextRequest): { email: string; role:
       }
     }
   }
-  return {
-    email: "student@ayursetu.local",
-    role: "STUDENT",
-    fullName: "Ayurveda Scholar",
-    id: "usr-student-default",
-  };
+  return null;
 }
 
 export async function POST(
@@ -138,9 +125,16 @@ export async function POST(
     }
 
     const existing = registeredUsers.get(email);
-    const userId = existing?.id || `usr-${Date.now().toString(36)}`;
-    const userRole = existing?.role || role || "STUDENT";
-    const fullName = existing?.fullName || email.split("@")[0] || "Ayurveda Practitioner";
+    if (!existing) {
+      return NextResponse.json(
+        { detail: "Account does not exist. Please register a new account with your @gmail.com address." },
+        { status: 401 }
+      );
+    }
+
+    const userId = existing.id;
+    const userRole = existing.role || role || "STUDENT";
+    const fullName = existing.fullName || email.split("@")[0];
     const token = createMockToken(email, userRole, userId);
 
     return NextResponse.json({
@@ -155,31 +149,53 @@ export async function POST(
 
   if (path === "auth/otp/verify") {
     const body = await request.json().catch(() => ({}));
-    const email = (body.email || "student@ayursetu.local").toLowerCase();
+    const email = (body.email || "").toLowerCase().trim();
     const existing = registeredUsers.get(email);
-    const role = existing?.role || "STUDENT";
-    const token = createMockToken(email, role, existing?.id || "usr-otp-verified");
+    if (!existing) {
+      return NextResponse.json(
+        { detail: "Account not found. Please register first." },
+        { status: 401 }
+      );
+    }
+    const token = createMockToken(email, existing.role, existing.id);
     return NextResponse.json({
       access_token: token,
       token_type: "bearer",
-      role: role,
-      user_id: existing?.id || "usr-otp-verified",
+      role: existing.role,
+      user_id: existing.id,
       email: email,
+      full_name: existing.fullName,
     });
   }
 
   if (path === "auth/google") {
     const body = await request.json().catch(() => ({}));
-    const email = (body.email || "google.student@gmail.com").toLowerCase();
+    const email = (body.email || "").toLowerCase().trim();
+    if (!email.endsWith("@gmail.com")) {
+      return NextResponse.json(
+        { detail: "Only valid Gmail accounts (@gmail.com) are accepted." },
+        { status: 400 }
+      );
+    }
     const role = (body.role || "STUDENT").toUpperCase();
-    const token = createMockToken(email, role, "usr-google-verified");
+    let user = registeredUsers.get(email);
+    if (!user) {
+      user = {
+        id: `usr-${Date.now().toString(36)}`,
+        email,
+        role,
+        fullName: body.name || body.full_name || email.split("@")[0],
+      };
+      registeredUsers.set(email, user);
+    }
+    const token = createMockToken(email, user.role, user.id);
     return NextResponse.json({
       access_token: token,
       token_type: "bearer",
-      role: role,
-      user_id: "usr-google-verified",
+      role: user.role,
+      user_id: user.id,
       email: email,
-      full_name: "Google Ayurvedic Scholar",
+      full_name: user.fullName,
     });
   }
 
@@ -223,6 +239,9 @@ export async function GET(
 
   if (path === "auth/me") {
     const session = extractSessionFromRequest(request);
+    if (!session) {
+      return NextResponse.json({ detail: "Not authenticated" }, { status: 401 });
+    }
     return NextResponse.json({
       id: session.id,
       email: session.email,
@@ -235,44 +254,25 @@ export async function GET(
 
   // Doctor Dashboard Summary
   if (path.startsWith("doctors/dashboard/summary") || path.startsWith("doctor/dashboard")) {
+    const session = extractSessionFromRequest(request);
     return NextResponse.json({
-      doctor_id: "doc-demo-1",
-      doctor_name: "Dr. Demo Vaidya",
-      qualification: "BAMS, MD (Panchakarma)",
-      specialization: "Panchakarma & Clinical Roganidana",
-      years_of_experience: 12,
-      profile_completion_percentage: 95,
+      doctor_id: session?.id || "doc-current",
+      doctor_name: session?.fullName || "Dr. Ayurvedic Clinician",
+      qualification: "BAMS, MD",
+      specialization: "Clinical Roganidana & Chikitsa",
+      years_of_experience: 1,
+      profile_completion_percentage: 100,
       verification_status: "VERIFIED",
-      active_internships_count: 3,
-      total_internships_count: 5,
-      applications_count: 12,
-      shortlisted_students_count: 4,
-      active_students_count: 6,
-      upcoming_sessions_count: 2,
-      completed_internships_count: 8,
-      clinics_count: 2,
-      recent_applications: [
-        {
-          id: "app-1",
-          student_name: "Priya Sharma",
-          student_college: "National Institute of Ayurveda, Jaipur",
-          internship_title: "Clinical Panchakarma Ward Assistant",
-          applied_at: "10 Oct 2026",
-          status: "REVIEWING",
-        },
-      ],
-      upcoming_sessions: [
-        {
-          id: "sess-1",
-          student_name: "Aarav Patel",
-          session_title: "Nadi Pariksha Masterclass Case Discussion",
-          scheduled_date: "18 Oct 2026",
-          start_time: "10:00 AM",
-          session_type: "CLINICAL_CASE",
-          meeting_mode: "VIDEO",
-          status: "SCHEDULED",
-        },
-      ],
+      active_internships_count: 0,
+      total_internships_count: 0,
+      applications_count: 0,
+      shortlisted_students_count: 0,
+      active_students_count: 0,
+      upcoming_sessions_count: 0,
+      completed_internships_count: 0,
+      clinics_count: 1,
+      recent_applications: [],
+      upcoming_sessions: [],
       recent_messages: [],
     });
   }
@@ -280,81 +280,48 @@ export async function GET(
   // Admin Dashboard & Verifications
   if (path.startsWith("admin/verifications/analytics") || path.startsWith("admin/analytics")) {
     return NextResponse.json({
-      total_requests: 48,
-      pending_count: 12,
-      approved_count: 32,
-      rejected_count: 3,
-      revoked_count: 1,
+      total_requests: 0,
+      pending_count: 0,
+      approved_count: 0,
+      rejected_count: 0,
+      revoked_count: 0,
       expired_count: 0,
-      approval_rate_pct: 88.5,
+      approval_rate_pct: 0,
     });
   }
 
   if (path.startsWith("admin/verifications")) {
-    return NextResponse.json([
-      {
-        id: "ver-1",
-        public_token: "tok-doc-881",
-        subject_type: "DOCTOR",
-        subject_id: "doc-101",
-        verification_type: "NCISM_REGISTRATION",
-        status: "PENDING",
-        submitted_by: "Dr. Ananya Joshi",
-        verification_method: "COUNCIL_DATABASE",
-        submitted_at: "2026-10-30T10:30:00Z",
-      },
-    ]);
+    return NextResponse.json([]);
   }
 
   // Faculty Dashboard
   if (path.startsWith("faculty/dashboard")) {
+    const session = extractSessionFromRequest(request);
     return NextResponse.json({
       faculty_profile: {
-        full_name: "Prof. Dr. Vaidya Suresh Sharma",
+        full_name: session?.fullName || "Faculty Vaidya",
         name_prefix: "Prof.",
         department: "Department of Samhita & Siddhanta",
-        designation: "Associate Professor & Senior Vaidya",
-        institution_name: "National Institute of Ayurveda",
-        qualifications: "MD (Ayurveda), BAMS, Ph.D.",
-        specialization: "Brihat-trayi Treatises, Panchakarma & Roganidana",
-        assigned_subjects: [
-          { id: "sub-1", name: "Rachana Sharir (Anatomy)", academic_year: "1st Year" },
-          { id: "sub-2", name: "Kriya Sharir (Physiology)", academic_year: "1st Year" },
-          { id: "sub-3", name: "Dravyaguna Vijnana", academic_year: "2nd Year" },
-        ],
+        designation: "Assistant Professor",
+        institution_name: "Ayurveda University",
+        qualifications: "MD (Ayurveda), BAMS",
+        specialization: "Clinical BAMS Education",
+        assigned_subjects: [],
         assigned_academic_years: ["1st Year", "2nd Year"],
       },
       institution: {
-        name: "National Institute of Ayurveda, Jaipur",
-        aishe_code: "AISHE-U-0128",
+        name: "Ayurveda Academic Center",
+        aishe_code: "AISHE-U-0001",
         verification_status: "VERIFIED",
       },
       metrics: {
-        assigned_subjects_count: 3,
-        total_resources_count: 14,
-        upcoming_lectures_count: 4,
-        students_count: 180,
+        assigned_subjects_count: 0,
+        total_resources_count: 0,
+        upcoming_lectures_count: 0,
+        students_count: 0,
       },
-      assigned_subjects: [
-        { id: "sub-1", name: "Rachana Sharir (Anatomy)", academic_year: "1st Year" },
-        { id: "sub-2", name: "Kriya Sharir (Physiology)", academic_year: "1st Year" },
-        { id: "sub-3", name: "Dravyaguna Vijnana", academic_year: "2nd Year" },
-      ],
-      upcoming_lectures: [
-        {
-          id: "lec-1",
-          title: "Sharira Pramana & Marmas in Surgical Anatomy",
-          subject_name: "Rachana Sharir",
-          academic_year: "1st Year",
-          topic: "Sushruta Samhita Sharira Sthana Ch. 6",
-          session_type: "LECTURE",
-          scheduled_date: "Tomorrow, 10:00 AM",
-          start_time: "10:00 AM",
-          end_time: "11:30 AM",
-          venue_or_link: "Ayurveda Lecture Hall 3B",
-          status: "SCHEDULED",
-        },
-      ],
+      assigned_subjects: [],
+      upcoming_lectures: [],
       recent_resources: [],
     });
   }
@@ -362,46 +329,19 @@ export async function GET(
   // Industry Dashboard
   if (path.startsWith("industry/dashboard")) {
     return NextResponse.json({
-      total_opportunities: 4,
-      published_opportunities: 3,
-      draft_opportunities: 1,
-      closed_opportunities: 4,
-      total_applications: 42,
-      under_review_applications: 18,
-      shortlisted_applications: 12,
-      interview_applications: 6,
-      offered_applications: 8,
-      accepted_applications: 6,
-      rejected_applications: 4,
-      recent_opportunities: [
-        {
-          id: "opp-1",
-          title: "Ayurvedic Phytochemistry R&D Intern",
-          opportunity_type: "INTERNSHIP",
-          work_mode: "HYBRID",
-          location: "Bengaluru, Karnataka",
-          applicant_count: 24,
-          status: "PUBLISHED",
-        },
-        {
-          id: "opp-2",
-          title: "Quality Control Analytical Chemist (ASU Drugs)",
-          opportunity_type: "JOB",
-          work_mode: "ONSITE",
-          location: "Bengaluru, Karnataka",
-          applicant_count: 18,
-          status: "PUBLISHED",
-        },
-      ],
-      recent_applications: [
-        {
-          id: "app-1",
-          applicant_name: "Priya Sharma",
-          opportunity_title: "Ayurvedic Phytochemistry R&D Intern",
-          applied_at: "10 Oct 2026",
-          status: "SHORTLISTED",
-        },
-      ],
+      total_opportunities: 0,
+      published_opportunities: 0,
+      draft_opportunities: 0,
+      closed_opportunities: 0,
+      total_applications: 0,
+      under_review_applications: 0,
+      shortlisted_applications: 0,
+      interview_applications: 0,
+      offered_applications: 0,
+      accepted_applications: 0,
+      rejected_applications: 0,
+      recent_opportunities: [],
+      recent_applications: [],
       verification_status: "VERIFIED",
     });
   }
@@ -409,27 +349,28 @@ export async function GET(
   // Institution Dashboard & Profile
   if (path.startsWith("institution/dashboard")) {
     return NextResponse.json({
-      total_students: 1450,
-      active_students: 1450,
-      assessed_students: 1240,
-      assessment_completion_rate: 85.0,
-      average_skill_score: 78.2,
-      students_with_gaps: 210,
-      total_applications: 180,
-      interview_count: 45,
-      offer_count: 28,
-      accepted_count: 24,
+      total_students: 0,
+      active_students: 0,
+      assessed_students: 0,
+      assessment_completion_rate: 0,
+      average_skill_score: 0,
+      students_with_gaps: 0,
+      total_applications: 0,
+      interview_count: 0,
+      offer_count: 0,
+      accepted_count: 0,
       verification_status: "VERIFIED",
-      department_count: 6,
+      department_count: 0,
     });
   }
 
   if (path.startsWith("institution/profile")) {
+    const session = extractSessionFromRequest(request);
     return NextResponse.json({
-      institution_name: "National Institute of Ayurveda",
+      institution_name: session?.fullName || "Ayurvedic Institution",
       verification_status: "VERIFIED",
-      city: "Jaipur",
-      state: "Rajasthan",
+      city: "Campus Center",
+      state: "India",
     });
   }
 
@@ -458,42 +399,37 @@ export async function GET(
   }
 
   if (path.startsWith("bams-learning/dashboard")) {
+    const session = extractSessionFromRequest(request);
     return NextResponse.json({
-      student_name: "Sarvesh Shant Kutte",
-      academic_year: "3rd Professional Year",
-      overall_completion_pct: 68.4,
-      topics_completed_count: 24,
+      student_name: session?.fullName || "Ayurvedic Scholar",
+      academic_year: "1st Professional Year",
+      overall_completion_pct: 0,
+      topics_completed_count: 0,
       total_topics_count: 35,
-      bookmarked_count: 5,
-      saved_notes_count: 3,
+      bookmarked_count: 0,
+      saved_notes_count: 0,
       subjects_progress: [
-        { id: "sub-1", code: "BAMS-402", name: "Panchakarma", sanskritName: "पञ्चकर्म", professionalYear: "4th Prof", iconName: "Activity", totalTopics: 28, completedTopics: 23, completionPct: 82, totalHours: 240 },
-        { id: "sub-2", code: "BAMS-401", name: "Kayachikitsa", sanskritName: "कायचिकित्सा", professionalYear: "3rd Prof", iconName: "Stethoscope", totalTopics: 32, completedTopics: 24, completionPct: 74, totalHours: 260 },
-        { id: "sub-3", code: "BAMS-201", name: "Dravyaguna Vijnana", sanskritName: "द्रव्यगुण", professionalYear: "2nd Prof", iconName: "Sprout", totalTopics: 35, completedTopics: 23, completionPct: 65, totalHours: 250 },
-        { id: "sub-4", code: "BAMS-403", name: "Shalya Tantra", sanskritName: "शल्यतन्त्रम्", professionalYear: "4th Prof", iconName: "Target", totalTopics: 28, completedTopics: 15, completionPct: 52, totalHours: 220 },
-        { id: "sub-5", code: "BAMS-202", name: "Roga Nidana", sanskritName: "रोगनिदान", professionalYear: "2nd Prof", iconName: "Activity", totalTopics: 25, completedTopics: 22, completionPct: 90, totalHours: 200 },
+        { id: "sub-1", code: "BAMS-101", name: "Kriya Sharir (Physiology)", sanskritName: "क्रियाशारीर", professionalYear: "1st Prof", iconName: "Activity", totalTopics: 28, completedTopics: 0, completionPct: 0, totalHours: 240 },
+        { id: "sub-2", code: "BAMS-102", name: "Rachana Sharir (Anatomy)", sanskritName: "रचनाशारीर", professionalYear: "1st Prof", iconName: "Activity", totalTopics: 32, completedTopics: 0, completionPct: 0, totalHours: 260 },
+        { id: "sub-3", code: "BAMS-201", name: "Dravyaguna Vijnana", sanskritName: "द्रव्यगुण", professionalYear: "2nd Prof", iconName: "Sprout", totalTopics: 35, completedTopics: 0, completionPct: 0, totalHours: 250 },
+        { id: "sub-4", code: "BAMS-301", name: "Kayachikitsa", sanskritName: "कायचिकित्सा", professionalYear: "3rd Prof", iconName: "Stethoscope", totalTopics: 32, completedTopics: 0, completionPct: 0, totalHours: 260 },
+        { id: "sub-5", code: "BAMS-302", name: "Panchakarma", sanskritName: "पञ्चकर्म", professionalYear: "3rd Prof", iconName: "Target", totalTopics: 28, completedTopics: 0, completionPct: 0, totalHours: 220 },
       ],
       today_study_plan: [
-        { id: "tp-1", time: "07:00 - 08:00", topic: "Vamana Karma Indications & Contraindications", duration: "45 mins", subject: "Panchakarma", completed: false, link: "/learning-hub" },
-        { id: "tp-2", time: "09:00 - 09:45", topic: "Guduchi Pharmacognosy & Clinical Formulations", duration: "30 mins", subject: "Dravyaguna", completed: false, link: "/herbs-research" },
-        { id: "tp-3", time: "16:00 - 17:00", topic: "Differential Diagnosis of Jvara (Fever)", duration: "40 mins", subject: "Kayachikitsa", completed: false, link: "/learning-hub" },
+        { id: "tp-1", time: "08:00 - 09:00", topic: "Introduction to Tridosha Siddhanta", duration: "45 mins", subject: "Kriya Sharir", completed: false, link: "/learning-hub" },
+        { id: "tp-2", time: "10:00 - 10:45", topic: "Pramana Sharira & Anatomy Overview", duration: "30 mins", subject: "Rachana Sharir", completed: false, link: "/learning-hub" },
       ],
-      upcoming_exams: [
-        { id: "exam-1", title: "NCISM Clinical Competency Mid-Term", date: "Nov 15, 2026", days_remaining: 15, type: "THEORY_BOARD", venue: "Ayurveda Medical College Hall" },
-        { id: "exam-2", title: "Panchakarma Viva Voce", date: "Nov 28, 2026", days_remaining: 28, type: "CLINICAL_VIVA", venue: "Hospital Inpatient Ward" },
-      ],
-      pending_revisions: 4,
-      quiz_performance: { total_taken: 18, avg_score: 84.5, total_quizzes_taken: 18, average_score_pct: 84.5 },
-      goals: { target_minutes_daily: 60, current_streak_days: 12, streak_encouragement: "Excellent consistency! Keep learning." },
+      upcoming_exams: [],
+      pending_revisions: 0,
+      quiz_performance: { total_taken: 0, avg_score: 0, total_quizzes_taken: 0, average_score_pct: 0 },
+      goals: { target_minutes_daily: 60, current_streak_days: 0, streak_encouragement: "Welcome to Aayuraura! Start your daily study routine." },
       milestones: [
-        { id: "m1", title: "Basic Ayurvedic Concepts Mastered", status: "COMPLETED", achieved: true },
-        { id: "m2", title: "Pharmacology & Formulations Clinical Module", status: "IN_PROGRESS", achieved: true },
-        { id: "m3", title: "Hospital Clinical Internship Readiness", status: "UPCOMING", achieved: false },
+        { id: "m1", title: "Begin 1st Year BAMS Curriculum", status: "IN_PROGRESS", achieved: false },
+        { id: "m2", title: "Complete Clinical Foundations Assessment", status: "UPCOMING", achieved: false },
       ],
       recommendations: [
-        { id: "rec-1", title: "Review Nadi Pariksha Waveforms", reason: "Identified gap in clinical diagnostic quizzes", action_url: "/learning-hub", priority: "HIGH", est_minutes: 20, subject: "Roga Nidana" },
-        { id: "rec-2", title: "Practice Dosha Assessment Case Study", reason: "Recommended for 3rd Prof BAMS curriculum", action_url: "/ai", priority: "MEDIUM", est_minutes: 15, subject: "Kriya Sharir" },
-        { id: "rec-3", title: "Explore Panchakarma Clinical Internships", reason: "3 openings match your profile in Pune", action_url: "/internships", priority: "HIGH", est_minutes: 10, subject: "Panchakarma" },
+        { id: "rec-1", title: "Explore 3D Anatomy Studio", reason: "Interactive 3D visualization for Rachana Sharir", action_url: "/3d-anatomy", priority: "HIGH", est_minutes: 15, subject: "Rachana Sharir" },
+        { id: "rec-2", title: "Review BAMS Learning Curriculum", reason: "Standard NCISM syllabus structure", action_url: "/learning-hub", priority: "MEDIUM", est_minutes: 10, subject: "Curriculum" },
       ],
     });
   }

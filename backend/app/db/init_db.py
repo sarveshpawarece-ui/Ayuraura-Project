@@ -136,16 +136,7 @@ INITIAL_CAREER_ROLES = [
     }
 ]
 
-DEV_SEED_USERS = [
-    {"email": "student@ayursetu.local", "role": UserRole.STUDENT, "name": "Aarav Sharma"},
-    {"email": "doctor@ayursetu.local", "role": UserRole.DOCTOR, "name": "Dr. Rajeshwari Sharma"},
-    {"email": "ngo@ayursetu.local", "role": UserRole.NGO, "name": "Arogya Seva Foundation"},
-    {"email": "faculty@ayursetu.local", "role": UserRole.FACULTY, "name": "Dr. Rajesh Sharma"},
-    {"email": "industry@ayursetu.local", "role": UserRole.INDUSTRY, "name": "Dabur Ayush Research Lab"},
-    {"email": "institution@ayursetu.local", "role": UserRole.INSTITUTION, "name": "National Institute of Ayurveda"},
-    {"email": "admin@ayursetu.local", "role": UserRole.ADMIN, "name": "AyurSetu Administrator"},
-    {"email": "admin@ayursetu.gov.in", "role": UserRole.ADMIN, "name": "System Admin"},
-]
+DEV_SEED_USERS = []
 
 INITIAL_QUESTIONS_DATA = [
     # --- TECHNICAL QUESTIONS (10) ---
@@ -1503,24 +1494,9 @@ async def init_db(db: AsyncSession) -> None:
     )
 
     exp_check = await db.execute(select(func.count(ExpertProfile.id)))
-    if exp_check.scalar_one() == 0:
-        # 1. Create or Find Doctors for Expert Profiles
-        doctor_user_res = await db.execute(select(User).where(User.role == UserRole.DOCTOR))
-        doctor_users = doctor_user_res.scalars().all()
-
-        if not doctor_users:
-            # Create a default doctor user if none exists
-            doc_user = User(
-                email="doctor@ayursetu.in",
-                hashed_password=get_password_hash("Doctor@123"),
-                role=UserRole.DOCTOR,
-                is_active=True,
-                is_verified=True
-            )
-            db.add(doc_user)
-            await db.flush()
-            doctor_users = [doc_user]
-
+    doctor_user_res = await db.execute(select(User).where(User.role == UserRole.DOCTOR))
+    doctor_users = doctor_user_res.scalars().all()
+    if exp_check.scalar_one() == 0 and doctor_users:
         primary_doc = doctor_users[0]
 
         # Expert Profile 1: Dr. Rajeshwari Sharma
