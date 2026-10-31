@@ -46,8 +46,8 @@ export default function InstitutionDashboard() {
         api.get("/institution/dashboard"),
         api.get("/institution/profile"),
       ]);
-      setSummary(dashRes.data);
-      setProfile(profRes.data);
+      setSummary(Array.isArray(dashRes.data) ? null : dashRes.data);
+      setProfile(Array.isArray(profRes.data) ? null : profRes.data);
     } catch (e: any) {
       console.error("Error loading institution dashboard:", e);
       let userEmail = "";

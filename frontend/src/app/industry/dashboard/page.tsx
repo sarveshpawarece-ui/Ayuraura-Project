@@ -68,7 +68,11 @@ export default function IndustryDashboardPage() {
       }
 
       const res = await api.get("/industry/dashboard");
-      setData(res.data);
+      if (res.data && !Array.isArray(res.data) && typeof res.data === "object") {
+        setData(res.data);
+      } else {
+        throw new Error("Invalid response format");
+      }
     } catch (err: any) {
       console.error("Industry dashboard fetch error:", err);
       if (err.response?.status === 401 || err.response?.status === 403) {
@@ -312,7 +316,7 @@ export default function IndustryDashboardPage() {
             </Link>
           }
         >
-          {data.recent_opportunities.length === 0 ? (
+          {(data.recent_opportunities || []).length === 0 ? (
             <DashboardEmptyState
               title="No Opportunities Posted"
               message="Create and publish your first internship or job opportunity to attract skilled Ayush candidates."
@@ -322,7 +326,7 @@ export default function IndustryDashboardPage() {
             />
           ) : (
             <div className="space-y-3">
-              {data.recent_opportunities.map((opp: any) => (
+              {(data.recent_opportunities || []).map((opp: any) => (
                 <div
                   key={opp.id}
                   className="p-4 rounded-xl bg-[#F7F9F4] dark:bg-[#0F1713] border border-[#DCE4DE] dark:border-[#2B3A31] flex items-center justify-between hover:border-[#2F6B4F]/40 dark:hover:border-[#6FAF8A]/40 transition-all"
@@ -384,7 +388,7 @@ export default function IndustryDashboardPage() {
             </Link>
           }
         >
-          {data.recent_applications.length === 0 ? (
+          {(data.recent_applications || []).length === 0 ? (
             <DashboardEmptyState
               title="No Candidate Applications Yet"
               message="Applications submitted to your published positions will appear here with AI match scoring."
@@ -392,7 +396,7 @@ export default function IndustryDashboardPage() {
             />
           ) : (
             <div className="space-y-3">
-              {data.recent_applications.map((app: any) => (
+              {(data.recent_applications || []).map((app: any) => (
                 <div
                   key={app.id}
                   className="p-4 rounded-xl bg-[#F7F9F4] dark:bg-[#0F1713] border border-[#DCE4DE] dark:border-[#2B3A31] flex items-center justify-between hover:border-[#2F6B4F]/40 dark:hover:border-[#6FAF8A]/40 transition-all"

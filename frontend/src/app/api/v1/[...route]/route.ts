@@ -359,6 +359,80 @@ export async function GET(
     });
   }
 
+  // Industry Dashboard
+  if (path.startsWith("industry/dashboard")) {
+    return NextResponse.json({
+      total_opportunities: 4,
+      published_opportunities: 3,
+      draft_opportunities: 1,
+      closed_opportunities: 4,
+      total_applications: 42,
+      under_review_applications: 18,
+      shortlisted_applications: 12,
+      interview_applications: 6,
+      offered_applications: 8,
+      accepted_applications: 6,
+      rejected_applications: 4,
+      recent_opportunities: [
+        {
+          id: "opp-1",
+          title: "Ayurvedic Phytochemistry R&D Intern",
+          opportunity_type: "INTERNSHIP",
+          work_mode: "HYBRID",
+          location: "Bengaluru, Karnataka",
+          applicant_count: 24,
+          status: "PUBLISHED",
+        },
+        {
+          id: "opp-2",
+          title: "Quality Control Analytical Chemist (ASU Drugs)",
+          opportunity_type: "JOB",
+          work_mode: "ONSITE",
+          location: "Bengaluru, Karnataka",
+          applicant_count: 18,
+          status: "PUBLISHED",
+        },
+      ],
+      recent_applications: [
+        {
+          id: "app-1",
+          applicant_name: "Priya Sharma",
+          opportunity_title: "Ayurvedic Phytochemistry R&D Intern",
+          applied_at: "10 Oct 2026",
+          status: "SHORTLISTED",
+        },
+      ],
+      verification_status: "VERIFIED",
+    });
+  }
+
+  // Institution Dashboard & Profile
+  if (path.startsWith("institution/dashboard")) {
+    return NextResponse.json({
+      total_students: 1450,
+      active_students: 1450,
+      assessed_students: 1240,
+      assessment_completion_rate: 85.0,
+      average_skill_score: 78.2,
+      students_with_gaps: 210,
+      total_applications: 180,
+      interview_count: 45,
+      offer_count: 28,
+      accepted_count: 24,
+      verification_status: "VERIFIED",
+      department_count: 6,
+    });
+  }
+
+  if (path.startsWith("institution/profile")) {
+    return NextResponse.json({
+      institution_name: "National Institute of Ayurveda",
+      verification_status: "VERIFIED",
+      city: "Jaipur",
+      state: "Rajasthan",
+    });
+  }
+
   if (path.startsWith("bams-learning/curriculum") || path.startsWith("bams-learning/subjects")) {
     return NextResponse.json({
       professional_years: ["1st Prof", "2nd Prof", "3rd Prof", "4th Prof"],
