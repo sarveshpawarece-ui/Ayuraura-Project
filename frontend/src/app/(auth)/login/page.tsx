@@ -27,7 +27,6 @@ import {
 import { api } from "@/lib/api";
 import { clearAuthSession, setCachedSessionUser } from "@/lib/authSession";
 import { getDashboardRouteForRole, UserRole } from "@/config/navigation";
-import { isDemoEmail } from "@/lib/demoData";
 import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 
 export const validateGmail = (emailStr: string): string | null => {
@@ -78,19 +77,8 @@ function LoginForm() {
     return () => clearInterval(timer);
   }, [resendCooldown]);
 
-  const DEMO_CREDENTIALS: Record<AuthRole, { email: string; pass: string }> = {
-    STUDENT: { email: "student@ayursetu.local", pass: "AyurSetu@2026" },
-    DOCTOR: { email: "doctor@ayursetu.local", pass: "AyurSetu@2026" },
-    INSTITUTION: { email: "institution@ayursetu.local", pass: "AyurSetu@2026" },
-    INDUSTRY: { email: "industry@ayursetu.local", pass: "AyurSetu@2026" },
-    NGO: { email: "ngo@ayursetu.local", pass: "AyurSetu@2026" },
-    ADMIN: { email: "admin@ayursetu.local", pass: "AyurSetu@2026" },
-  };
-
   const handleRoleSelect = (selectedRole: AuthRole) => {
     setRole(selectedRole);
-    setEmail(DEMO_CREDENTIALS[selectedRole].email);
-    setPassword(DEMO_CREDENTIALS[selectedRole].pass);
   };
 
   const handleFinalizeLogin = (authData: any) => {
@@ -163,17 +151,10 @@ function LoginForm() {
     setSuccessMsg("");
 
     const cleanEmail = email.trim().toLowerCase();
-    const isDemo =
-      isDemoEmail(cleanEmail) &&
-      DEMO_CREDENTIALS[role]?.email.toLowerCase() === cleanEmail &&
-      password === DEMO_CREDENTIALS[role]?.pass;
-
-    if (!isDemo) {
-      const emailError = validateGmail(email);
-      if (emailError) {
-        setError(emailError);
-        return;
-      }
+    const emailError = validateGmail(cleanEmail);
+    if (emailError) {
+      setError(emailError);
+      return;
     }
 
     setLoading(true);
@@ -202,41 +183,6 @@ function LoginForm() {
       // Direct login (when OTP requirement is bypassed or disabled)
       handleFinalizeLogin(res.data);
     } catch (err: any) {
-      const cleanEmail = email.trim().toLowerCase();
-      const isDemo =
-        isDemoEmail(cleanEmail) &&
-        DEMO_CREDENTIALS[role]?.email.toLowerCase() === cleanEmail &&
-        password === DEMO_CREDENTIALS[role]?.pass;
-
-      // In case backend is offline / unreachable, seamless demo role authentication:
-      if (isDemo && (!err.response || err.response.status >= 500 || err.code === "ERR_NETWORK")) {
-        const demoRole = role.toUpperCase() as UserRole;
-        clearAuthSession();
-        localStorage.setItem("ayursetu_token", `demo_token_${demoRole.toLowerCase()}`);
-        localStorage.setItem("token", `demo_token_${demoRole.toLowerCase()}`);
-        localStorage.setItem("ayursetu_role", demoRole);
-        localStorage.setItem("role", demoRole);
-        localStorage.setItem("ayursetu_email", cleanEmail);
-        localStorage.setItem("email", cleanEmail);
-        localStorage.setItem(
-          "ayursetu_user",
-          JSON.stringify({ id: `demo-${demoRole.toLowerCase()}`, email: cleanEmail, role: demoRole })
-        );
-
-        setCachedSessionUser({
-          id: `demo-${demoRole.toLowerCase()}`,
-          email: cleanEmail,
-          role: demoRole,
-          is_active: true,
-          is_verified: true,
-        });
-
-        window.dispatchEvent(new Event("ayursetu_auth_change"));
-        const targetRoute = getDashboardRouteForRole(demoRole);
-        window.location.href = targetRoute;
-        return;
-      }
-
       setError(
         err.response?.data?.detail ||
           "Invalid login credentials. Please check your email and password."
@@ -611,17 +557,10 @@ function LoginForm() {
                   <form onSubmit={handleSubmit} className="space-y-4">
                     {/* Role Selector Grid */}
                     <div>
-                      <div className="flex items-center justify-between mb-1.5">
+                      <div className="mb-1.5">
                         <label className="block text-xs font-semibold text-[#3b5947] dark:text-[#E8F1EB]">
                           Login as
                         </label>
-                        <button
-                          type="button"
-                          onClick={() => handleRoleSelect(role)}
-                          className="text-[11px] font-semibold text-[#205c3b] dark:text-[#6FAF8A] hover:underline cursor-pointer flex items-center gap-1"
-                        >
-                          ⚡ Auto-fill {role} Demo
-                        </button>
                       </div>
                       <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                         {roleOptions.map((opt) => {
