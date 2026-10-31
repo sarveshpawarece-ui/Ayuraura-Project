@@ -114,7 +114,7 @@ export default function AdminDashboardPage() {
     );
   }
 
-  const defaultAnalytics: Analytics = analytics || {
+  const defaultAnalytics: Analytics = (analytics && !Array.isArray(analytics)) ? analytics : {
     total_requests: 24,
     pending_count: 5,
     approved_count: 18,

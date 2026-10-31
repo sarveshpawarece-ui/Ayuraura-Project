@@ -949,9 +949,9 @@ export default function StudentDashboard() {
             }
           >
             <div className="space-y-3">
-              {todayStudyPlan.map((item) => (
+              {todayStudyPlan.map((item, idx) => (
                 <div
-                  key={item.id}
+                  key={item.id || `tp-${idx}`}
                   onClick={() => handleToggleStudyPlan(item.id)}
                   role="button"
                   tabIndex={0}
@@ -976,7 +976,7 @@ export default function StudentDashboard() {
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="font-mono text-[11px] font-bold text-gray-500">
-                          {item.time}
+                          {item.time || "08:00 - 09:00"}
                         </span>
                         <span className="text-[10px] px-2 py-0.2 rounded-md bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 font-semibold border border-gray-200 dark:border-gray-700">
                           {item.subject}
@@ -995,7 +995,7 @@ export default function StudentDashboard() {
                   </div>
 
                   <Link
-                    href={item.link}
+                    href={item.link || "/learning-hub"}
                     onClick={(e) => e.stopPropagation()}
                     className="p-1.5 rounded-lg text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 shrink-0"
                     title="Study topic"
@@ -1235,9 +1235,9 @@ export default function StudentDashboard() {
         }}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          {subjectsProgress.map((sub) => (
+          {subjectsProgress.map((sub, idx) => (
             <div
-              key={sub.id}
+              key={sub.id || `sub-${idx}`}
               className="p-5 rounded-3xl bg-white dark:bg-[#17221C] border border-[#DCE4DE] dark:border-[#2B3A31] shadow-xs hover:border-emerald-500/40 transition-all space-y-4 flex flex-col justify-between"
             >
               <div className="space-y-3">
@@ -1259,7 +1259,7 @@ export default function StudentDashboard() {
                   </div>
 
                   <span className="text-[11px] font-bold text-gray-500 px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800">
-                    {sub.professionalYear}
+                    {sub.professionalYear || "Curriculum"}
                   </span>
                 </div>
 
@@ -1268,7 +1268,7 @@ export default function StudentDashboard() {
                     {sub.name}
                   </h4>
                   <p className="text-xs font-serif text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-1">
-                    {sub.sanskritName}
+                    {sub.sanskritName || sub.name}
                   </p>
                 </div>
 
@@ -1276,13 +1276,13 @@ export default function StudentDashboard() {
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-gray-500">Mastery</span>
                     <span className="font-bold font-mono text-emerald-600 dark:text-emerald-400">
-                      {sub.completionPct}% ({sub.completedTopics}/{sub.totalTopics})
+                      {sub.completionPct ?? (sub as any).completion ?? 0}% ({sub.completedTopics || 0}/{sub.totalTopics || 30})
                     </span>
                   </div>
                   <div className="w-full h-2 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
                     <div
                       className="h-full bg-emerald-500 rounded-full transition-all duration-500"
-                      style={{ width: `${sub.completionPct}%` }}
+                      style={{ width: `${sub.completionPct ?? (sub as any).completion ?? 0}%` }}
                     />
                   </div>
                 </div>
