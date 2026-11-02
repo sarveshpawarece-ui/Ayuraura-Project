@@ -34,18 +34,24 @@ export function normalizeUserRole(role: string | null | undefined): string | nul
 export async function getAuthSession(forceRefresh: boolean = false): Promise<AuthSessionUser | null> {
   if (typeof window === "undefined") return null;
 
-  const token =
-    localStorage.getItem("ayursetu_token") || localStorage.getItem("token");
-  if (!token) {
+  const rawToken =
+    localStorage.getItem("aayuraura_token") ||
+    localStorage.getItem("ayursetu_token") ||
+    localStorage.getItem("token");
+  if (!rawToken || rawToken === "undefined" || rawToken === "null" || !rawToken.trim()) {
     cachedSession = null;
     return null;
   }
 
   const storedRole = normalizeUserRole(
-    localStorage.getItem("ayursetu_role") || localStorage.getItem("role")
+    localStorage.getItem("aayuraura_role") ||
+    localStorage.getItem("ayursetu_role") ||
+    localStorage.getItem("role")
   );
   const storedEmail =
-    localStorage.getItem("ayursetu_email") || localStorage.getItem("email") || "";
+    localStorage.getItem("aayuraura_email") ||
+    localStorage.getItem("ayursetu_email") ||
+    localStorage.getItem("email") || "";
 
   const now = Date.now();
   if (!forceRefresh && cachedSession && now - cachedSession.timestamp < CACHE_TTL_MS) {
@@ -80,10 +86,12 @@ export async function getAuthSession(forceRefresh: boolean = false): Promise<Aut
           timestamp: Date.now(),
         };
 
-        // Synchronize localStorage for instant cold bootstrap
+        // Synchronize all localStorage keys for instant cold bootstrap
+        localStorage.setItem("aayuraura_role", user.role);
         localStorage.setItem("ayursetu_role", user.role);
         localStorage.setItem("role", user.role);
         if (user.email) {
+          localStorage.setItem("aayuraura_email", user.email);
           localStorage.setItem("ayursetu_email", user.email);
           localStorage.setItem("email", user.email);
         }
@@ -98,7 +106,7 @@ export async function getAuthSession(forceRefresh: boolean = false): Promise<Aut
         return null;
       }
 
-      // If network error / backend offline but user has stored credentials (e.g., demo session):
+      // If network error / backend offline but user has stored credentials:
       if (storedRole) {
         const offlineUser: AuthSessionUser = {
           id: "offline-session",
@@ -135,18 +143,22 @@ export function setCachedSessionUser(user: AuthSessionUser) {
 }
 
 /**
- * Clears the session cache and local tokens.
+ * Clears the session cache and all local auth tokens and role data.
  */
 export function clearAuthSession() {
   cachedSession = null;
   inFlightPromise = null;
   if (typeof window !== "undefined") {
+    localStorage.removeItem("aayuraura_token");
     localStorage.removeItem("ayursetu_token");
     localStorage.removeItem("token");
+    localStorage.removeItem("aayuraura_role");
     localStorage.removeItem("ayursetu_role");
     localStorage.removeItem("role");
+    localStorage.removeItem("aayuraura_email");
     localStorage.removeItem("ayursetu_email");
     localStorage.removeItem("email");
+    localStorage.removeItem("aayuraura_user");
     localStorage.removeItem("ayursetu_user");
   }
 }

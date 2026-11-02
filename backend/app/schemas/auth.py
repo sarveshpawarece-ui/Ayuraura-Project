@@ -1,5 +1,6 @@
+import re
 from typing import Optional
-from pydantic import BaseModel, EmailStr, UUID4, ConfigDict
+from pydantic import BaseModel, EmailStr, UUID4, ConfigDict, field_validator
 from app.models.user import UserRole
 
 class UserRegister(BaseModel):
@@ -22,9 +23,35 @@ class UserRegister(BaseModel):
     city: Optional[str] = None
     state: Optional[str] = None
 
+    @field_validator("password")
+    @classmethod
+    def validate_password_min_length(cls, v: str) -> str:
+        if not v or len(str(v).strip()) < 8:
+            raise ValueError("Password must be at least 8 characters long.")
+        return str(v)
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone_digits(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        clean = str(v).strip()
+        if not clean:
+            return None
+        if not re.match(r"^\d{10}$", clean):
+            raise ValueError("Phone number must contain exactly 10 numeric digits (digits 0-9 only, no letters, spaces or special characters).")
+        return clean
+
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+
+    @field_validator("password")
+    @classmethod
+    def validate_login_password(cls, v: str) -> str:
+        if not v or not str(v).strip():
+            raise ValueError("Password is required.")
+        return str(v)
 
 class Token(BaseModel):
     access_token: Optional[str] = None

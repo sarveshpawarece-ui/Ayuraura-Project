@@ -23,7 +23,10 @@ import {
   MapPin,
   Award,
   BookOpen,
-  Sparkles
+  Sparkles,
+  CheckCircle2,
+  KeyRound,
+  RotateCw
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { clearAuthSession, setCachedSessionUser } from "@/lib/authSession";
@@ -70,11 +73,21 @@ function RegisterForm() {
   const inviteToken = searchParams.get("invite");
 
   type RegisterRole = "STUDENT" | "DOCTOR" | "FACULTY" | "INDUSTRY" | "INSTITUTION" | "NGO";
+  type RegisterStep = "FORM" | "OTP";
+
+  const [step, setStep] = useState<RegisterStep>("FORM");
   const [role, setRole] = useState<RegisterRole>("STUDENT");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [inviteDetails, setInviteDetails] = useState<any>(null);
+
+  // 2FA OTP Challenge states
+  const [challengeToken, setChallengeToken] = useState("");
+  const [maskedEmail, setMaskedEmail] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [successMsg, setSuccessMsg] = useState("");
 
   // Role-based structured name states
   const [prefix, setPrefix] = useState<string>(() => getDefaultPrefixForRole("STUDENT"));
@@ -99,6 +112,14 @@ function RegisterForm() {
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
 
   useEffect(() => {
     if (inviteToken) {
@@ -134,18 +155,31 @@ function RegisterForm() {
     lastName,
   });
 
-  const handleGoogleSuccess = (authData: any) => {
+  const handleFinalizeLogin = (authData: any) => {
+    const token = authData?.access_token;
+    if (!token || typeof token !== "string" || token === "undefined" || token === "null") {
+      setError("Account created, but authentication token was not received. Please sign in with your password.");
+      return;
+    }
+
     clearAuthSession();
+
     const finalRole = (authData.role || role || "STUDENT").toString().trim().toUpperCase() as UserRole;
-    const token = authData.access_token;
     const userEmail = authData.email || email;
 
+    localStorage.setItem("aayuraura_token", token);
     localStorage.setItem("ayursetu_token", token);
     localStorage.setItem("token", token);
+    localStorage.setItem("aayuraura_role", finalRole);
     localStorage.setItem("ayursetu_role", finalRole);
     localStorage.setItem("role", finalRole);
+    localStorage.setItem("aayuraura_email", userEmail);
     localStorage.setItem("ayursetu_email", userEmail);
     localStorage.setItem("email", userEmail);
+    localStorage.setItem(
+      "aayuraura_user",
+      JSON.stringify({ id: authData.user_id, email: userEmail, role: finalRole })
+    );
     localStorage.setItem(
       "ayursetu_user",
       JSON.stringify({ id: authData.user_id, email: userEmail, role: finalRole })
@@ -160,17 +194,54 @@ function RegisterForm() {
     });
 
     window.dispatchEvent(new Event("ayursetu_auth_change"));
+
     const roleDashboardRoute = getDashboardRouteForRole(finalRole);
-    window.location.href = redirectUrl ? redirectUrl : roleDashboardRoute;
+
+    if (
+      redirectUrl &&
+      redirectUrl.startsWith("/") &&
+      !redirectUrl.startsWith("/login") &&
+      !redirectUrl.startsWith("/register")
+    ) {
+      if (redirectUrl.startsWith("/admin") && finalRole !== "ADMIN") {
+        window.location.href = roleDashboardRoute;
+        return;
+      }
+      if (redirectUrl === "/dashboard") {
+        window.location.href = roleDashboardRoute;
+        return;
+      }
+      window.location.href = redirectUrl;
+      return;
+    }
+
+    window.location.href = roleDashboardRoute;
+  };
+
+  const handleGoogleSuccess = (authData: any) => {
+    handleFinalizeLogin(authData);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setSuccessMsg("");
 
-    const emailErr = validateGmail(email);
+    const cleanEmail = email.trim().toLowerCase();
+    const emailErr = validateGmail(cleanEmail);
     if (emailErr) {
       setError(emailErr);
+      return;
+    }
+
+    const cleanPhone = phone.trim();
+    if (!cleanPhone || !/^\d{10}$/.test(cleanPhone)) {
+      setError("Phone number must contain exactly 10 numeric digits.");
+      return;
+    }
+
+    if (!password || password.trim().length < 8) {
+      setError("Password must be at least 8 characters long.");
       return;
     }
 
@@ -179,24 +250,23 @@ function RegisterForm() {
     try {
       const resolvedFullName = formattedDisplayName || `${firstName} ${lastName}`.trim();
 
-      let loginRes: any;
-
       if (inviteToken && inviteDetails) {
         // Accept secure institutional invitation
-        loginRes = await api.post("/auth/accept-invitation", {
+        const loginRes = await api.post("/auth/accept-invitation", {
           invitation_token: inviteToken,
           password,
           full_name: resolvedFullName,
           name_prefix: prefix,
           first_name: firstName,
           last_name: lastName,
-          phone,
+          phone: cleanPhone,
           qualifications: qualification,
           specialization: specialization
         });
+        handleFinalizeLogin(loginRes.data);
       } else {
         await api.post("/auth/register", {
-          email,
+          email: cleanEmail,
           password,
           role,
           name_prefix: prefix || undefined,
@@ -206,7 +276,7 @@ function RegisterForm() {
           full_name: resolvedFullName,
           organization_or_institution: org,
           code_or_reg_number: regNum,
-          phone,
+          phone: cleanPhone,
           qualification: role === "DOCTOR" || role === "FACULTY" ? qualification : undefined,
           specialization: role === "DOCTOR" || role === "FACULTY" ? specialization : undefined,
           state_medical_council: role === "DOCTOR" ? council : undefined,
@@ -218,64 +288,71 @@ function RegisterForm() {
 
         // Auto login after registration
         const formData = new FormData();
-        formData.append("username", email);
+        formData.append("username", cleanEmail);
         formData.append("password", password);
 
-        loginRes = await api.post("/auth/login", formData, {
+        const loginRes = await api.post("/auth/login", formData, {
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
         });
-      }
 
-      clearAuthSession();
-
-      const finalRole = (loginRes.data?.role || role || "").toString().trim().toUpperCase() as UserRole;
-      const token = loginRes.data.access_token;
-      const userEmail = loginRes.data.email || email;
-
-      localStorage.setItem("ayursetu_token", token);
-      localStorage.setItem("token", token);
-      localStorage.setItem("ayursetu_role", finalRole);
-      localStorage.setItem("role", finalRole);
-      localStorage.setItem("ayursetu_email", userEmail);
-      localStorage.setItem("email", userEmail);
-      localStorage.setItem(
-        "ayursetu_user",
-        JSON.stringify({ id: loginRes.data.user_id, email: userEmail, role: finalRole })
-      );
-
-      setCachedSessionUser({
-        id: String(loginRes.data.user_id || "user-id"),
-        email: userEmail,
-        role: finalRole,
-        is_active: true,
-        is_verified: true,
-      });
-
-      window.dispatchEvent(new Event("ayursetu_auth_change"));
-
-      const roleDashboardRoute = getDashboardRouteForRole(finalRole);
-
-      if (
-        redirectUrl &&
-        redirectUrl.startsWith("/") &&
-        !redirectUrl.startsWith("/login") &&
-        !redirectUrl.startsWith("/register")
-      ) {
-        if (redirectUrl.startsWith("/admin") && finalRole !== "ADMIN") {
-          window.location.href = roleDashboardRoute;
+        if (loginRes.data?.otp_required && loginRes.data?.challenge_token) {
+          setChallengeToken(loginRes.data.challenge_token);
+          setMaskedEmail(loginRes.data.masked_email || cleanEmail);
+          setStep("OTP");
+          setSuccessMsg(loginRes.data.message || "Account registered successfully! Enter the 6-digit verification code sent to your email.");
+          setResendCooldown(30);
           return;
         }
-        if (redirectUrl === "/dashboard") {
-          window.location.href = roleDashboardRoute;
-          return;
-        }
-        window.location.href = redirectUrl;
-        return;
-      }
 
-      window.location.href = roleDashboardRoute;
+        handleFinalizeLogin(loginRes.data);
+      }
     } catch (err: any) {
       setError(err.response?.data?.detail || "Registration failed. Please check your details.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!otpCode || otpCode.trim().length !== 6) {
+      setError("Please enter the complete 6-digit verification code.");
+      return;
+    }
+    setError("");
+    setSuccessMsg("");
+    setLoading(true);
+
+    try {
+      const res = await api.post("/auth/verify-login-otp", {
+        challenge_token: challengeToken,
+        otp: otpCode.trim(),
+      });
+      handleFinalizeLogin(res.data);
+    } catch (err: any) {
+      setError(
+        err.response?.data?.detail ||
+          "Verification failed. The code may be incorrect or expired."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (resendCooldown > 0 || loading) return;
+    setError("");
+    setSuccessMsg("");
+    setLoading(true);
+
+    try {
+      const res = await api.post("/auth/resend-login-otp", {
+        challenge_token: challengeToken,
+      });
+      setSuccessMsg(res.data?.message || "A new 6-digit verification code has been sent to your email.");
+      setResendCooldown(30);
+    } catch (err: any) {
+      setError(err.response?.data?.detail || "Failed to resend code. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -418,6 +495,13 @@ function RegisterForm() {
                 </p>
               </div>
 
+              {successMsg && (
+                <div className="mb-3.5 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2.5">
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                  <span>{successMsg}</span>
+                </div>
+              )}
+
               {error && (
                 <div className="mb-3.5 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2.5">
                   <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
@@ -425,26 +509,103 @@ function RegisterForm() {
                 </div>
               )}
 
-              {!inviteDetails && (
-                <div className="mb-4 space-y-3">
-                  <GoogleSignInButton
-                    mode="signup"
-                    role={role}
-                    onSuccess={handleGoogleSuccess}
-                    onError={(err) => setError(err)}
-                  />
-
-                  <div className="relative flex items-center justify-center my-2">
-                    <div className="border-t border-[#d8e6d9] w-full" />
-                    <span className="bg-white px-3 text-[11px] font-semibold text-[#668874] uppercase tracking-wider shrink-0">
-                      Or Register With Gmail
-                    </span>
-                    <div className="border-t border-[#d8e6d9] w-full" />
+              {step === "OTP" ? (
+                /* 2FA OTP Verification Step */
+                <form onSubmit={handleVerifyOtp} className="space-y-4">
+                  <div className="p-3.5 rounded-2xl bg-[#f0f7f2] border border-[#C5DEC9] text-center">
+                    <div className="w-10 h-10 rounded-full bg-white border border-[#205c3b]/30 flex items-center justify-center mx-auto mb-2 text-[#205c3b]">
+                      <KeyRound className="w-5 h-5" />
+                    </div>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[#134927]">
+                      Two-Step Verification
+                    </h3>
+                    <p className="text-xs text-[#4b6957] mt-1">
+                      Enter the 6-digit verification code sent to:
+                    </p>
+                    <p className="text-xs font-semibold text-[#1a3827] mt-0.5 font-mono">
+                      {maskedEmail}
+                    </p>
                   </div>
-                </div>
-              )}
 
-              <form onSubmit={handleSubmit} className="space-y-3">
+                  <div>
+                    <label
+                      htmlFor="otp-input-reg"
+                      className="block text-xs font-semibold text-[#3b5947] mb-1.5 text-center"
+                    >
+                      Enter 6-Digit Code
+                    </label>
+                    <input
+                      id="otp-input-reg"
+                      name="otp"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={6}
+                      autoFocus
+                      required
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
+                      placeholder="••••••"
+                      className="w-full h-[52px] text-center tracking-[0.5em] font-mono text-2xl font-bold rounded-xl bg-white border-2 border-[#205c3b] text-[#1B2A22] focus:outline-none focus:ring-4 focus:ring-[#205c3b]/20 transition-all shadow-xs"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading || otpCode.trim().length !== 6}
+                    className="w-full h-[48px] rounded-xl bg-[#1b442c] hover:bg-[#143623] text-white font-bold text-sm flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer disabled:opacity-50 mt-1"
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>{loading ? "Verifying..." : "Verify & Sign In"}</span>
+                  </button>
+
+                  <div className="flex items-center justify-between text-xs pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStep("FORM");
+                        setError("");
+                      }}
+                      className="text-[#567a65] hover:text-[#134927] font-semibold cursor-pointer"
+                    >
+                      ← Back to Form
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={resendCooldown > 0 || loading}
+                      onClick={handleResendOtp}
+                      className="text-[#1b442c] hover:text-[#134927] font-bold disabled:text-[#8aa393] disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer"
+                    >
+                      <RotateCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+                      <span>
+                        {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend code"}
+                      </span>
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <>
+                  {!inviteDetails && (
+                    <div className="mb-4 space-y-3">
+                      <GoogleSignInButton
+                        mode="signup"
+                        role={role}
+                        onSuccess={handleGoogleSuccess}
+                        onError={(err) => setError(err)}
+                      />
+
+                      <div className="relative flex items-center justify-center my-2">
+                        <div className="border-t border-[#d8e6d9] w-full" />
+                        <span className="bg-white px-3 text-[11px] font-semibold text-[#668874] uppercase tracking-wider shrink-0">
+                          Or Register With Gmail
+                        </span>
+                        <div className="border-t border-[#d8e6d9] w-full" />
+                      </div>
+                    </div>
+                  )}
+
+                  <form onSubmit={handleSubmit} className="space-y-3">
                 {/* Institutional Invitation Alert */}
                 {inviteDetails && (
                   <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs mb-2 space-y-1">
@@ -588,19 +749,31 @@ function RegisterForm() {
 
                 {/* Mobile / Phone Number */}
                 <div>
-                  <label className="block text-xs font-semibold text-[#3b5947] mb-0.5">
-                    Mobile / Phone Number
-                  </label>
+                  <div className="flex items-center justify-between mb-0.5">
+                    <label className="block text-xs font-semibold text-[#3b5947]">
+                      Mobile / Phone Number *
+                    </label>
+                    <span className={`text-[10px] font-semibold ${phone.length === 10 ? "text-emerald-700" : "text-[#5a7c66]"}`}>
+                      {phone.length}/10 digits
+                    </span>
+                  </div>
                   <div className="relative">
                     <Phone className="w-4 h-4 text-[#759381] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="tel"
+                      inputMode="numeric"
+                      pattern="[0-9]{10}"
+                      maxLength={10}
+                      required
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="+91 98765 43210"
-                      className="w-full pl-10 pr-4 py-2 rounded-xl bg-white border border-[#cadacb] text-xs sm:text-sm text-[#163826] placeholder-[#8ca697] focus:outline-none focus:border-[#205c3b] transition-all"
+                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                      placeholder="10-digit mobile number"
+                      className="w-full pl-10 pr-4 py-2 rounded-xl bg-white border border-[#cadacb] text-xs sm:text-sm text-[#163826] placeholder-[#8ca697] focus:outline-none focus:border-[#205c3b] transition-all font-mono tracking-wider"
                     />
                   </div>
+                  <p className="mt-1 text-[10px] text-[#557563]">
+                    Enter exactly 10 numeric digits without country code (+91), spaces, or symbols.
+                  </p>
                 </div>
 
                 {/* Email Address */}
@@ -794,14 +967,20 @@ function RegisterForm() {
 
                 {/* Password Field */}
                 <div>
-                  <label className="block text-xs font-semibold text-[#3b5947] mb-0.5">
-                    Create Password
-                  </label>
+                  <div className="flex items-center justify-between mb-0.5">
+                    <label className="block text-xs font-semibold text-[#3b5947]">
+                      Create Password *
+                    </label>
+                    <span className={`text-[10px] font-semibold ${password.length >= 8 ? "text-emerald-700" : "text-[#557563]"}`}>
+                      {password.length > 0 ? `${password.length} chars (min 8)` : "Min. 8 characters"}
+                    </span>
+                  </div>
                   <div className="relative">
                     <Lock className="w-4 h-4 text-[#759381] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type={showPassword ? "text" : "password"}
                       required
+                      minLength={8}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="At least 8 characters"
@@ -833,6 +1012,8 @@ function RegisterForm() {
                   )}
                 </button>
               </form>
+            </>
+          )}
             </div>
           </div>
 

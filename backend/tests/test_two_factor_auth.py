@@ -1,12 +1,15 @@
 import pytest
 import httpx
 from datetime import datetime, timezone, timedelta
+from unittest.mock import patch
 from sqlalchemy import select
 
 from app.main import app
 from app.core.database import AsyncSessionLocal, engine, Base
 from app.db.init_db import init_db
+from app.models.user import User, UserRole
 from app.models.security_privacy import LoginOtpChallenge
+from app.core.security import get_password_hash
 from app.core.config import settings
 
 BASE_URL = "http://testserver/api/v1"
@@ -17,6 +20,21 @@ async def setup_test_database():
         await conn.run_sync(Base.metadata.create_all)
     async with AsyncSessionLocal() as session:
         await init_db(session)
+        # Ensure doctor@ayursetu.in exists for 2FA tests
+        stmt = select(User).where(User.email == "doctor@ayursetu.in")
+        res = await session.execute(stmt)
+        user = res.scalars().first()
+        if not user:
+            doc_user = User(
+                email="doctor@ayursetu.in",
+                hashed_password=get_password_hash("password123"),
+                role=UserRole.DOCTOR,
+                is_active=True,
+                is_verified=True,
+                auth_provider="LOCAL"
+            )
+            session.add(doc_user)
+            await session.commit()
 
 
 @pytest.mark.asyncio
@@ -37,27 +55,21 @@ async def test_smtp_service_status():
 
 @pytest.mark.asyncio
 async def test_two_factor_auth_challenge_and_verification():
-    """Verify end-to-end SMTP OTP two-step verification workflow:
-    1. Credentials submitted -> generates challenge token and sends OTP.
-    2. Invalid OTP -> rejected with remaining attempts count.
-    3. Exceeded attempts -> locked out (429/400).
-    4. Resend OTP -> generates new challenge token.
-    5. Correct OTP -> issues valid JWT token and logs 2FA audit.
-    """
     from app.api.v1.endpoints.auth import hash_otp_code
 
     await setup_test_database()
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url=BASE_URL, timeout=20.0) as client:
-        # Step 1: Submit valid credentials without bypass header
-        res_login = await client.post(
-            "/auth/login",
-            data={"username": "doctor@ayursetu.in", "password": "password123"},
-            headers={"Content-Type": "application/x-www-form-urlencoded", "X-Require-OTP": "true"}
-        )
-        assert res_login.status_code == 200
-        login_data = res_login.json()
-        assert login_data["otp_required"] is True
+        with patch("app.services.email_service.EmailService.send_login_otp_email", return_value=True):
+            # Step 1: Submit valid credentials without bypass header
+            res_login = await client.post(
+                "/auth/login",
+                data={"username": "doctor@ayursetu.in", "password": "password123"},
+                headers={"Content-Type": "application/x-www-form-urlencoded", "X-Require-OTP": "true"}
+            )
+            assert res_login.status_code == 200
+            login_data = res_login.json()
+            assert login_data["otp_required"] is True
         assert "challenge_token" in login_data
         assert "masked_email" in login_data
         assert "access_token" not in login_data or login_data["access_token"] is None
@@ -135,13 +147,14 @@ async def test_expired_otp_challenge():
     await setup_test_database()
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url=BASE_URL, timeout=15.0) as client:
-        res_login = await client.post(
-            "/auth/login",
-            data={"username": "doctor@ayursetu.in", "password": "password123"},
-            headers={"Content-Type": "application/x-www-form-urlencoded", "X-Require-OTP": "true"}
-        )
-        assert res_login.status_code == 200
-        challenge_token = res_login.json()["challenge_token"]
+        with patch("app.services.email_service.EmailService.send_login_otp_email", return_value=True):
+            res_login = await client.post(
+                "/auth/login",
+                data={"username": "doctor@ayursetu.in", "password": "password123"},
+                headers={"Content-Type": "application/x-www-form-urlencoded", "X-Require-OTP": "true"}
+            )
+            assert res_login.status_code == 200
+            challenge_token = res_login.json()["challenge_token"]
 
         # Expire the challenge in DB
         async with AsyncSessionLocal() as session:

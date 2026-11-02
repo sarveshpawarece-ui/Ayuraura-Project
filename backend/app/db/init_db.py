@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, date
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from sqlalchemy.future import select

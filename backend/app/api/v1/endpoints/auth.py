@@ -251,9 +251,46 @@ def hash_otp_code(otp: str, challenge_token: str) -> str:
     return hashlib.sha256(raw).hexdigest()
 
 
+def validate_phone_number(phone: Optional[str]) -> Optional[str]:
+    """
+    Validates phone number:
+    - Must be a string containing exactly 10 numeric digits.
+    - Alphabetic characters, special characters, and spaces are strictly prohibited.
+    - Stored and validated as a 10-digit numeric string without floating-point conversion.
+    """
+    if phone is None:
+        return None
+    clean = str(phone).strip()
+    if not clean:
+        return None
+    if not re.match(r"^\d{10}$", clean):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Phone number must contain exactly 10 numeric digits (0-9) with no spaces, letters, or special characters."
+        )
+    return clean
+
+
+def validate_password_length(password: str) -> str:
+    """
+    Validates password requirements:
+    - Minimum length: 8 characters.
+    - Password must not be empty.
+    """
+    if not password or len(str(password).strip()) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 8 characters long."
+        )
+    return str(password)
+
+
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 async def register(user_in: UserRegister, db: AsyncSession = Depends(get_db)):
     clean_email = validate_gmail_address(user_in.email)
+    validate_password_length(user_in.password)
+    clean_phone = validate_phone_number(user_in.phone)
+
     result = await db.execute(select(User).where(func.lower(User.email) == clean_email))
     existing_user = result.scalars().first()
     if existing_user:
@@ -297,7 +334,7 @@ async def register(user_in: UserRegister, db: AsyncSession = Depends(get_db)):
             middle_name=middle_name or None,
             last_name=last_name or None,
             full_name=formatted_full_name,
-            phone=user_in.phone
+            phone=clean_phone
         )
         db.add(profile)
     elif user_in.role == UserRole.INDUSTRY:
@@ -305,7 +342,7 @@ async def register(user_in: UserRegister, db: AsyncSession = Depends(get_db)):
             user_id=user.id,
             company_name=user_in.organization_or_institution or formatted_full_name,
             registration_number=user_in.code_or_reg_number,
-            contact_phone=user_in.phone
+            contact_phone=clean_phone
         )
         db.add(profile)
     elif user_in.role == UserRole.INSTITUTION:
@@ -318,7 +355,7 @@ async def register(user_in: UserRegister, db: AsyncSession = Depends(get_db)):
             contact_person_middle_name=middle_name or None,
             contact_person_last_name=last_name or None,
             contact_person_name=formatted_full_name,
-            contact_phone=user_in.phone
+            contact_phone=clean_phone
         )
         db.add(profile)
     elif user_in.role == UserRole.DOCTOR:
@@ -335,7 +372,7 @@ async def register(user_in: UserRegister, db: AsyncSession = Depends(get_db)):
             specialization=user_in.specialization or "General Ayurveda & Clinical Practice",
             years_of_experience=user_in.years_of_experience if user_in.years_of_experience is not None else 1,
             designation=user_in.designation or "Ayurvedic Physician",
-            phone=user_in.phone,
+            phone=clean_phone,
             city=user_in.city or "New Delhi",
             state=user_in.state or "Delhi",
             verification_status=VerificationStatus.PENDING
@@ -351,7 +388,7 @@ async def register(user_in: UserRegister, db: AsyncSession = Depends(get_db)):
             service_areas=["Free Health Camps", "Herb Conservation", "Tribal Health Outreach"],
             contact_person=formatted_full_name,
             email=clean_email,
-            phone=user_in.phone or "+91 99999 00000",
+            phone=clean_phone or "+91 99999 00000",
             city=user_in.city or "New Delhi",
             state=user_in.state or "Delhi",
             address=f"{user_in.city or 'New Delhi'}, {user_in.state or 'Delhi'}",
@@ -394,7 +431,7 @@ async def register(user_in: UserRegister, db: AsyncSession = Depends(get_db)):
             qualifications=user_in.qualification or "MD (Ayurveda), BAMS",
             specialization=user_in.specialization or "Ayurvedic Medicine",
             contact_email=clean_email,
-            contact_phone=user_in.phone
+            contact_phone=clean_phone
         )
         db.add(profile)
 

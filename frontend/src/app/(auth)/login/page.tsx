@@ -70,6 +70,17 @@ function LoginForm() {
   const [resendCooldown, setResendCooldown] = useState(0);
 
   useEffect(() => {
+    const isRegistered = searchParams.get("registered");
+    const emailParam = searchParams.get("email");
+    if (isRegistered === "true") {
+      setSuccessMsg("Account registered successfully! Please enter your password to sign in.");
+    }
+    if (emailParam) {
+      setEmail(emailParam);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
     if (resendCooldown <= 0) return;
     const timer = setInterval(() => {
       setResendCooldown((prev) => (prev > 0 ? prev - 1 : 0));
@@ -91,6 +102,10 @@ function LoginForm() {
     }
 
     const token = authData.access_token;
+    if (!token || token === "undefined" || token === "null" || !token.trim()) {
+      setError("Login session could not be established. Please re-enter your credentials.");
+      return;
+    }
     const userEmail = authData.email || email.trim();
 
     localStorage.setItem("aayuraura_token", token);
@@ -154,6 +169,11 @@ function LoginForm() {
     const emailError = validateGmail(cleanEmail);
     if (emailError) {
       setError(emailError);
+      return;
+    }
+
+    if (!password || password.trim().length < 8) {
+      setError("Password must be at least 8 characters long.");
       return;
     }
 
